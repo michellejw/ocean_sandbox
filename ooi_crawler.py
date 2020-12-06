@@ -1,4 +1,4 @@
-'''
+"""
 ooi_crawler.py
 
 This script looks for the raw data files for a requested instrument in the OOI network, then saves the
@@ -10,14 +10,15 @@ Could be more flexible in the future but this is it for now.
 TODO:
 - check if the requested pickle file already exists. If it does, open it and only add what's missing.
 - save to file at intermediate steps
-'''
+"""
 
 import requests
 from bs4 import BeautifulSoup
-import numpy as np
 from dateutil import parser
 import pandas as pd
-import os, sys
+import os
+import sys
+
 
 def file_crawl(network, site, instrument, outfile):
     """
@@ -31,36 +32,30 @@ def file_crawl(network, site, instrument, outfile):
     :param instrument: (string) instrument code, e.g. '09-HYDBBA302'
     :param outfile: (string) file name including path
     """
+
     # check whether the requested folder exists, and if not return an error
     requested_dir = os.path.dirname(outfile)
     if not os.path.exists(requested_dir):
         sys.exit('The requested path does not exist --> ' + requested_dir)
 
-    df_init = pd.DataFrame(columns=['filepath','filename','starttime'])
+    df_init = pd.DataFrame(columns=['filepath', 'filename', 'starttime'])
     df_init.to_pickle(outfile)
 
     # Define the top level folder for this instrument/site (Axial volcano broadband hydrophone)
     main_url = 'https://rawdata.oceanobservatories.org/files/' + network + '/' + site + '/' + instrument + '/'
-    main_url_contents = requests.get(main_url).content
-    # Parse the main page using beautiful soup
-    soup = BeautifulSoup(main_url_contents, 'html.parser')
-    year_folders = [link.get('href') for link in soup.find_all('a')][6:]
+    year_folders = url_get_folders(main_url)
 
     # Loop through each year folder
     for yf in year_folders:
         year_url = main_url + yf
-        year_url_contents = requests.get(year_url).content
-        soup = BeautifulSoup(year_url_contents, 'html.parser')
-        month_folders = [link.get('href') for link in soup.find_all('a')][6:]
+        month_folders = url_get_folders(year_url)
 
         # Loop through each month folder
         for mf in month_folders:
             month_url = year_url + mf
-            month_url_contents = requests.get(month_url).content
-            soup = BeautifulSoup(month_url_contents, 'html.parser')
-            day_folders = [link.get('href') for link in soup.find_all('a')][6:]
+            day_folders = url_get_folders(month_url)
             # create empty dataframe for just this month
-            df_thismonth = pd.DataFrame(columns=['filepath', 'filename', 'starttime'])
+            df_this_month = pd.DataFrame(columns=['filepath', 'filename', 'starttime'])
 
             # Loop through each day folder
             for df in day_folders:
@@ -74,24 +69,39 @@ def file_crawl(network, site, instrument, outfile):
                 # For each miniseed file, add row to dataframe with file path, 
                 # file name, start and end date/time
                 for msfile in mseed_files:
-                    stime = parser.parse(msfile.split('.mseed')[0][-26:])
-                    df_thismonth = df_thismonth.append({'filepath': day_url,
-                                   'filename': msfile.split('./')[1],
-                                   'starttime': stime}, ignore_index=True)
+                    s_time = parser.parse(msfile.split('.mseed')[0][-26:])
+                    df_this_month = df_this_month.append({'filepath': day_url,
+                                                          'filename': msfile.split('./')[1],
+                                                          'starttime': s_time}, ignore_index=True)
 
             # at the end of each month loop, load the pickle file, add the latest dataframe,
             # then overwrite the previous pickle file.
             df_bb = pd.read_pickle(outfile)
-            df_bb = pd.concat([df_bb,df_thismonth])
+            df_bb = pd.concat([df_bb, df_this_month])
             df_bb.to_pickle(outfile)
+
+
+def url_get_folders(base_url):
+    """
+    url_scraper
+    Read in the base url using beautiful soup. Read links to folders.
+
+    :param base_url: (string) url pointing to the page containing folder.
+    :return: folder_list: (list) list of folder names
+    """
+    url_contents = requests.get(base_url).content
+    soup = BeautifulSoup(url_contents, 'html.parser')
+    folder_list = [link.get('href') for link in soup.find_all('a')][6:]
+
+    return folder_list
 
 
 if __name__ == "__main__":
     # If run as script, do this:
-    network = 'RS03AXBS'
-    site = 'LJ03A'
-    instrument = '09-HYDBBA302'
+    this_network = 'RS03AXBS'
+    this_site = 'LJ03A'
+    this_instrument = '09-HYDBBA302'
     # outfile = '../ooi_data/ooi_lookup.pkl'
-    outfile = '../../data/ooi_lookup/ooi_lookup.pkl'
-    
-    file_crawl(network, site, instrument, outfile)
+    this_outfile = '../../data/ooi_lookup/ooi_lookup.pkl'
+
+    file_crawl(this_network, this_site, this_instrument, this_outfile)
