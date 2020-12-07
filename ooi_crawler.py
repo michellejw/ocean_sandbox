@@ -83,24 +83,29 @@ def file_crawl(network, site, instrument, outfile):
             for df in day_folders:
                 print('Starting: ' + yf.split('/')[0] + '/' + mf.split('/')[0] + '/' + df.split('/')[0])
                 day_url = month_url + df
-                day_url_contents = requests.get(day_url, timeout=30).content
-                # Some days have weird data where there are tons of really short files. Better to skip.
-                # Probably would be best to log the days that were skipped in this way so we can check
-                # later.
-                if day_url_contents.__sizeof__() > 200000:
-                    print('Skipping the day because url contents are too large: ' + day_url)
+                try:
+                    day_url_contents = requests.get(day_url, timeout=10).content
+                except requests.exceptions.Timeout:
+                    print('Request timed out: ' + day_url)
                 else:
-                    soup = BeautifulSoup(day_url_contents, 'html.parser')
-                    all_links = [link.get('href') for link in soup.find_all('a')]
-                    mseed_files = [i for i in all_links if '.mseed' in i]
+                    # Some days have weird data where there are tons of really short files. Better to skip.
+                    # Probably would be best to log the days that were skipped in this way so we can check
+                    # later.
+                    # print('url size: ' + day_url_contents.__sizeof__())
+                    if day_url_contents.__sizeof__() > 200000:
+                        print('Skipping the day because url contents are too large: ' + day_url)
+                    else:
+                        soup = BeautifulSoup(day_url_contents, 'html.parser')
+                        all_links = [link.get('href') for link in soup.find_all('a')]
+                        mseed_files = [i for i in all_links if '.mseed' in i]
 
-                    # For each miniseed file, add row to dataframe with file path,
-                    # file name, start and end date/time
-                    for msfile in mseed_files:
-                        s_time = parser.parse(msfile.split('.mseed')[0][-26:])
-                        df_this_month = df_this_month.append({'filepath': day_url,
-                                                              'filename': msfile.split('./')[1],
-                                                              'starttime': s_time}, ignore_index=True)
+                        # For each miniseed file, add row to dataframe with file path,
+                        # file name, start and end date/time
+                        for msfile in mseed_files:
+                            s_time = parser.parse(msfile.split('.mseed')[0][-26:])
+                            df_this_month = df_this_month.append({'filepath': day_url,
+                                                                  'filename': msfile.split('./')[1],
+                                                                  'starttime': s_time}, ignore_index=True)
 
             # at the end of each month loop, load the pickle file, add the latest dataframe,
             # then overwrite the previous pickle file.
@@ -132,7 +137,7 @@ if __name__ == "__main__":
     this_network = 'RS03AXBS'
     this_site = 'LJ03A'
     this_instrument = '09-HYDBBA302'
-    this_outfile = '../ooi_data/ooi_lookup.pkl'
-    # this_outfile = '../../data/ooi_lookup/ooi_lookup.pkl'
+    # this_outfile = '../ooi_data/ooi_lookup.pkl'
+    this_outfile = '../../data/ooi_lookup/ooi_lookup.pkl'
 
     file_crawl(this_network, this_site, this_instrument, this_outfile)
