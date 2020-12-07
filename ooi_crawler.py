@@ -84,9 +84,11 @@ def file_crawl(network, site, instrument, outfile):
                 print('Starting: ' + yf.split('/')[0] + '/' + mf.split('/')[0] + '/' + df.split('/')[0])
                 day_url = month_url + df
                 try:
-                    day_url_contents = requests.get(day_url, timeout=10).content
-                except requests.exceptions.Timeout:
-                    print('Request timed out: ' + day_url)
+                    day_url_contents = requests.get(day_url, timeout=30).content
+                except requests.exceptions.RequestException as e:  # This is the correct syntax
+                    print('Requests exception - ' + day_url)
+#                 except requests.exceptions.Timeout:
+#                     print('Request timed out: ' + day_url)
                 else:
                     # Some days have weird data where there are tons of really short files. Better to skip.
                     # Probably would be best to log the days that were skipped in this way so we can check
