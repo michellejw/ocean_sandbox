@@ -7,9 +7,6 @@ output of those files to a pickled pandas dataframe.
 Specifically created for broadband hydrophone data (looking for miniseed (.mseed) files).
 Could be more flexible in the future but this is it for now.
 
-TODO:
-- check if the requested pickle file already exists. If it does, open it and only add what's missing.
-- save to file at intermediate steps
 """
 
 import requests
@@ -48,6 +45,7 @@ def file_crawl(network, site, instrument, outfile):
         latest_year = df_from_file.iloc[-1].starttime.year
         latest_month = df_from_file.iloc[-1].starttime.month
         latest_day = df_from_file.iloc[-1].starttime.day
+        del df_from_file
 
     # Define the top level folder for this instrument/site (Axial volcano broadband hydrophone)
     main_url = 'https://rawdata.oceanobservatories.org/files/' + network + '/' + site + '/' + instrument + '/'
@@ -74,7 +72,7 @@ def file_crawl(network, site, instrument, outfile):
             day_folders = url_get_folders(month_url)
 
             # If lookup file exists, start at the day where it leaves off
-            if (mdex == 0) & (delayed_start):
+            if (ydex == 0) & (mdex == 0) & (delayed_start):
                 latest_day_index = [int(day[:-1]) for day in day_folders].index(latest_day)
                 day_folders = day_folders[latest_day_index:]
 
@@ -85,18 +83,24 @@ def file_crawl(network, site, instrument, outfile):
             for df in day_folders:
                 print('Starting: ' + yf.split('/')[0] + '/' + mf.split('/')[0] + '/' + df.split('/')[0])
                 day_url = month_url + df
-                day_url_contents = requests.get(day_url).content
-                soup = BeautifulSoup(day_url_contents, 'html.parser')
-                all_links = [link.get('href') for link in soup.find_all('a')]
-                mseed_files = [i for i in all_links if '.mseed' in i]
+                day_url_contents = requests.get(day_url, timeout=30).content
+                # Some days have weird data where there are tons of really short files. Better to skip.
+                # Probably would be best to log the days that were skipped in this way so we can check
+                # later.
+                if day_url_contents.__sizeof__() > 200000:
+                    print('Skipping the day because url contents are too large: ' + day_url)
+                else:
+                    soup = BeautifulSoup(day_url_contents, 'html.parser')
+                    all_links = [link.get('href') for link in soup.find_all('a')]
+                    mseed_files = [i for i in all_links if '.mseed' in i]
 
-                # For each miniseed file, add row to dataframe with file path, 
-                # file name, start and end date/time
-                for msfile in mseed_files:
-                    s_time = parser.parse(msfile.split('.mseed')[0][-26:])
-                    df_this_month = df_this_month.append({'filepath': day_url,
-                                                          'filename': msfile.split('./')[1],
-                                                          'starttime': s_time}, ignore_index=True)
+                    # For each miniseed file, add row to dataframe with file path,
+                    # file name, start and end date/time
+                    for msfile in mseed_files:
+                        s_time = parser.parse(msfile.split('.mseed')[0][-26:])
+                        df_this_month = df_this_month.append({'filepath': day_url,
+                                                              'filename': msfile.split('./')[1],
+                                                              'starttime': s_time}, ignore_index=True)
 
             # at the end of each month loop, load the pickle file, add the latest dataframe,
             # then overwrite the previous pickle file.
@@ -104,6 +108,8 @@ def file_crawl(network, site, instrument, outfile):
             df_bb = pd.concat([df_bb, df_this_month])
             df_bb = df_bb.drop_duplicates()
             df_bb.to_pickle(outfile)
+            del df_bb
+            del df_this_month
 
 
 def url_get_folders(base_url):
