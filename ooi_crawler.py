@@ -38,22 +38,46 @@ def file_crawl(network, site, instrument, outfile):
     if not os.path.exists(requested_dir):
         sys.exit('The requested path does not exist --> ' + requested_dir)
 
-    df_init = pd.DataFrame(columns=['filepath', 'filename', 'starttime'])
-    df_init.to_pickle(outfile)
+    if not os.path.isfile(outfile):
+        df_init = pd.DataFrame(columns=['filepath', 'filename', 'starttime'])
+        df_init.to_pickle(outfile)
+        delayed_start = 0
+    else:
+        df_from_file = pd.read_pickle(outfile)
+        delayed_start = 1
+        latest_year = df_from_file.iloc[-1].starttime.year
+        latest_month = df_from_file.iloc[-1].starttime.month
+        latest_day = df_from_file.iloc[-1].starttime.day
 
     # Define the top level folder for this instrument/site (Axial volcano broadband hydrophone)
     main_url = 'https://rawdata.oceanobservatories.org/files/' + network + '/' + site + '/' + instrument + '/'
     year_folders = url_get_folders(main_url)
 
+    if delayed_start:
+        # Start from the most recent year included in the existing pickle file
+        latest_year_index = [int(year[:-1]) for year in year_folders].index(latest_year)
+        year_folders = year_folders[latest_year_index:]
+
     # Loop through each year folder
-    for yf in year_folders:
+    for ydex, yf in enumerate(year_folders):
         year_url = main_url + yf
         month_folders = url_get_folders(year_url)
 
+        # If lookup file exists, start at the month where it leaves off
+        if (ydex == 0) & (delayed_start):
+            latest_month_index = [int(month[:-1]) for month in month_folders].index(latest_month)
+            month_folders = month_folders[latest_month_index:]
+
         # Loop through each month folder
-        for mf in month_folders:
+        for mdex, mf in enumerate(month_folders):
             month_url = year_url + mf
             day_folders = url_get_folders(month_url)
+
+            # If lookup file exists, start at the day where it leaves off
+            if (mdex == 0) & (delayed_start):
+                latest_day_index = [int(day[:-1]) for day in day_folders].index(latest_day)
+                day_folders = day_folders[latest_day_index:]
+
             # create empty dataframe for just this month
             df_this_month = pd.DataFrame(columns=['filepath', 'filename', 'starttime'])
 
@@ -78,6 +102,7 @@ def file_crawl(network, site, instrument, outfile):
             # then overwrite the previous pickle file.
             df_bb = pd.read_pickle(outfile)
             df_bb = pd.concat([df_bb, df_this_month])
+            df_bb = df_bb.drop_duplicates()
             df_bb.to_pickle(outfile)
 
 
@@ -101,7 +126,7 @@ if __name__ == "__main__":
     this_network = 'RS03AXBS'
     this_site = 'LJ03A'
     this_instrument = '09-HYDBBA302'
-    # outfile = '../ooi_data/ooi_lookup.pkl'
-    this_outfile = '../../data/ooi_lookup/ooi_lookup.pkl'
+    this_outfile = '../ooi_data/ooi_lookup.pkl'
+    # this_outfile = '../../data/ooi_lookup/ooi_lookup.pkl'
 
     file_crawl(this_network, this_site, this_instrument, this_outfile)
