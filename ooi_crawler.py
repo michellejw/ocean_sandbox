@@ -118,6 +118,11 @@ def file_crawl(network, site, instrument, outfile):
             del df_bb
             del df_this_month
 
+    # Reset the index at the end
+    df_bb = pd.read_pickle(outfile)
+    df_bb = df_bb.reset_index(drop=True)
+    df_bb.to_pickle(outfile)
+
 
 def url_get_folders(base_url):
     """
@@ -139,7 +144,8 @@ if __name__ == "__main__":
     this_network = 'RS03AXBS'
     this_site = 'LJ03A'
     this_instrument = '09-HYDBBA302'
-    # this_outfile = '../ooi_data/ooi_lookup.pkl'
-    this_outfile = '../../data/ooi_lookup/ooi_lookup.pkl'
+    this_outfile = '../ooi_data/ooi_lookup.pkl'
+    this_outfile = '../ooi_data/ooi_lookup.pkl'
+    # this_outfile = '../../data/ooi_lookup/ooi_lookup.pkl'
 
     file_crawl(this_network, this_site, this_instrument, this_outfile)
