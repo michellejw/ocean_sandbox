@@ -19,7 +19,6 @@ import sys
 
 def file_crawl(network, site, instrument, outfile):
     """
-    file_crawl
     A function that crawls through the folders of a specific instrument on the ooi raw data website
     and constructs a lookup table (a pandas dataframe, pickled at a requested location).
     The pandas dataframe has three columns: path to the file, the name of the miniseed file
@@ -126,7 +125,6 @@ def file_crawl(network, site, instrument, outfile):
 
 def url_get_folders(base_url):
     """
-    url_scraper
     Read in the base url using beautiful soup. Read links to folders.
 
     :param base_url: (string) url pointing to the page containing folder.
@@ -144,7 +142,6 @@ if __name__ == "__main__":
     this_network = 'RS03AXBS'
     this_site = 'LJ03A'
     this_instrument = '09-HYDBBA302'
-    this_outfile = '../ooi_data/ooi_lookup.pkl'
     this_outfile = '../ooi_data/ooi_lookup.pkl'
     # this_outfile = '../../data/ooi_lookup/ooi_lookup.pkl'
 
